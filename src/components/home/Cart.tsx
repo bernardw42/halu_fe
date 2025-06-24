@@ -86,6 +86,27 @@ export default function Cart() {
     return () => window.removeEventListener("cartUpdated", listener);
   }, []);
 
+  const handleCheckout = async () => {
+    try {
+      const res = await fetch(`http://localhost:8080/api/checkout/${buyerId}`, {
+        method: "POST",
+      });
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        toast.error(text || "Failed to start checkout.");
+      } else {
+        toast.success(text || "Checkout started.");
+      }
+
+      window.location.href = "/payment"; // always go to payment, whether checkout is new or reused
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      toast.error("Network error during checkout.");
+    }
+  };
+
   return (
     <>
       {/* 🛒 Floating Cart Button */}
@@ -212,9 +233,7 @@ export default function Cart() {
 
           <button
             className="bg-[#4361ee] hover:bg-blue-700 text-white w-full py-2 rounded-lg font-semibold"
-            onClick={() => {
-              window.location.href = "/payment";
-            }}
+            onClick={handleCheckout}
             disabled={cartItems.length === 0}
           >
             Proceed to Payment

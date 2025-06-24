@@ -35,6 +35,23 @@ export default function Navbar({
       />
 
       <div className="mt-3 md:mt-0 md:ml-6 flex gap-2 items-center">
+        {/* 🧾 Buyer: Payment | 📦 Seller: Sales */}
+        {role === "BUYER" && (
+          <Link href="/payment">
+            <button className="bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg shadow hover:bg-blue-100 transition-all">
+              Payment
+            </button>
+          </Link>
+        )}
+        {role === "SELLER" && (
+          <Link href="/sales">
+            <button className="bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg shadow hover:bg-blue-100 transition-all">
+              Sales
+            </button>
+          </Link>
+        )}
+
+        {/* 🚪 Logout */}
         <button
           onClick={() => {
             localStorage.clear();
