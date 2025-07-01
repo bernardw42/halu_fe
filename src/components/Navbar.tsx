@@ -11,6 +11,29 @@ export default function Navbar({
 }) {
   const [search, setSearch] = useState("");
 
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem("refreshToken");
+
+    // If you have a refresh token, call logout API
+    if (refreshToken) {
+      await fetch("http://localhost:8080/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
+
+    // Clear local storage regardless
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("role");
+
+    window.location.href = "/";
+  };
+
   return (
     <nav className="bg-gradient-to-r from-blue-600 to-blue-400 border-b border-blue-800 shadow-sm flex flex-col md:flex-row items-center justify-between px-6 py-4 mb-6 rounded-xl mx-2 mt-2">
       <Link
@@ -53,10 +76,7 @@ export default function Navbar({
 
         {/* 🚪 Logout */}
         <button
-          onClick={() => {
-            localStorage.clear();
-            window.location.href = "/";
-          }}
+          onClick={handleLogout}
           className="bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg shadow hover:bg-blue-100 transition-all"
         >
           Logout

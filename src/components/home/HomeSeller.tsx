@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../Navbar";
 import toast from "react-hot-toast";
+import { fetchWithRefresh } from "../../utils/fetchWithRefresh";
 
 type Product = {
   id: number;
@@ -26,10 +27,9 @@ export default function HomeSeller() {
 
   useEffect(() => {
     if (!userId) return;
-    fetch(`http://localhost:8080/api/products/seller/${userId}`)
+    fetchWithRefresh(`http://localhost:8080/api/products/seller/${userId}`)
       .then((res) => res.json())
       .then((data) => {
-        // Sort by latest/highest id by default
         const sortedById = [...data].sort((a, b) => b.id - a.id);
         setProducts(sortedById);
         setFiltered(sortedById);
@@ -38,7 +38,6 @@ export default function HomeSeller() {
       });
   }, [userId]);
 
-  // 3-mode sort handler
   const handleSort = () => {
     let nextMode: SortMode;
     if (sortMode === "default") nextMode = "desc";
@@ -57,11 +56,6 @@ export default function HomeSeller() {
   };
 
   const handleDelete = (productId: number) => {
-    if (!userId) {
-      toast.error("User not identified.");
-      return;
-    }
-
     toast(
       (t) => (
         <div className="flex flex-col gap-2">
@@ -71,11 +65,9 @@ export default function HomeSeller() {
               onClick={async () => {
                 toast.dismiss(t.id);
                 try {
-                  const res = await fetch(
-                    `http://localhost:8080/api/products/${userId}/${productId}`,
-                    {
-                      method: "DELETE",
-                    }
+                  const res = await fetchWithRefresh(
+                    `http://localhost:8080/api/seller/products/${productId}`,
+                    { method: "DELETE" }
                   );
 
                   const text = await res.text();
@@ -111,7 +103,6 @@ export default function HomeSeller() {
     );
   };
 
-  // Update filtered when searching
   const handleSearch = (query: string) => {
     const filteredList = products.filter((p) =>
       p.title.toLowerCase().includes(query.toLowerCase())
@@ -121,7 +112,6 @@ export default function HomeSeller() {
     setSortMode("default");
   };
 
-  // Button label
   const sortLabel =
     sortMode === "default"
       ? "Default"

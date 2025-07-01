@@ -1,16 +1,37 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  // ✅ Auto logout on page load
+  useEffect(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("role");
+    localStorage.removeItem("userId");
+    console.log("✅ Cleared local storage on LoginPage load");
+  }, []);
+
   const handleLogin = async () => {
-    const role = username.startsWith("s") ? "SELLER" : "BUYER";
-    localStorage.setItem("role", role);
-    localStorage.setItem("userId", "1");
-    window.location.href = "/home"; // ✅ no useRouter
+    const res = await fetch("http://localhost:8080/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("refreshToken", data.refreshToken);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("userId", String(data.userId));
+      window.location.href = "/home";
+    } else {
+      alert("Login failed!");
+    }
   };
 
   return (
@@ -20,13 +41,13 @@ export default function LoginPage() {
           Login
         </h1>
         <input
-          className="mb-3 border border-blue-200 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black placeholder-gray-400"
+          className="mb-3 border border-blue-200 p-2 rounded w-full"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
         <input
-          className="mb-3 border border-blue-200 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black placeholder-gray-400"
+          className="mb-3 border border-blue-200 p-2 rounded w-full"
           placeholder="Password"
           type="password"
           value={password}

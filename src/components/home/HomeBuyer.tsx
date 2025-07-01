@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import Navbar from "../Navbar";
 import Cart from "../home/Cart";
 import toast from "react-hot-toast";
+import { fetchWithRefresh } from "../../utils/fetchWithRefresh";
 
 type Product = {
   id: number;
@@ -27,10 +28,9 @@ export default function HomeBuyer() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/products")
+    fetchWithRefresh("http://localhost:8080/api/products")
       .then((res) => res.json())
       .then((data) => {
-        // Sort by latest/highest id by default
         const sortedById = [...data].sort((a, b) => b.id - a.id);
         setProducts(sortedById);
         setFiltered(sortedById);
@@ -43,7 +43,6 @@ export default function HomeBuyer() {
       });
   }, []);
 
-  // Infinite auto-slide every 5 seconds
   useEffect(() => {
     if (carousel.length === 0) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -53,10 +52,8 @@ export default function HomeBuyer() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carousel, carouselIndex]);
 
-  // Fade animation handler
   const handleCarouselChange = (dir: "left" | "right") => {
     setFade(false);
     setTimeout(() => {
@@ -69,7 +66,6 @@ export default function HomeBuyer() {
     }, 200);
   };
 
-  // 3-mode sort handler
   const handleSort = () => {
     let nextMode: SortMode;
     if (sortMode === "default") nextMode = "desc";
@@ -87,7 +83,6 @@ export default function HomeBuyer() {
     }
   };
 
-  // Update filtered when searching
   const handleSearch = (query: string) => {
     const filteredList = products.filter((p) =>
       p.title.toLowerCase().includes(query.toLowerCase())
@@ -97,7 +92,6 @@ export default function HomeBuyer() {
     setSortMode("default");
   };
 
-  // Button label
   const sortLabel =
     sortMode === "default"
       ? "Default"
@@ -211,23 +205,24 @@ export default function HomeBuyer() {
                   }
 
                   try {
-                    const response = await fetch(
-                      `http://localhost:8080/api/carts/${buyerId}/add/${product.id}`,
+                    // Use fetchWithRefresh to ensure Authorization header is set
+                    const response = await fetchWithRefresh(
+                      `http://localhost:8080/api/buyer/carts/add/${product.id}`,
                       {
                         method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ quantity: 1 }),
                       }
                     );
 
-                    const text = await response.text(); // Get backend message
+                    const text = await response.text();
 
                     if (!response.ok) {
-                      // 👇 Show backend error (e.g. "This product is out of stock...")
                       toast.error(text || "Something went wrong.");
                     } else {
                       window.dispatchEvent(new Event("cartUpdated"));
                       toast.success(`Added ${product.title} to cart!`);
                     }
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   } catch (err) {
                     toast.error("Network error. Please try again.");
                   }

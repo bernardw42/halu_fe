@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { fetchWithRefresh } from "../../utils/fetchWithRefresh"; // ✅ adjust path if needed!
 
 type CartItem = {
   id: number;
@@ -17,23 +18,33 @@ export default function Cart() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [open, setOpen] = useState(false);
 
-  const buyerId =
-    typeof window !== "undefined" ? localStorage.getItem("userId") : null;
-
+  // ✅ GET /api/buyer/carts
   const fetchCart = async () => {
-    if (!buyerId) return;
-    const res = await fetch(`http://localhost:8080/api/carts/${buyerId}`);
-    const data = await res.json();
-    setCartItems(data);
+    try {
+      const res = await fetchWithRefresh(
+        `http://localhost:8080/api/buyer/carts`
+      );
+      if (!res.ok) throw new Error("Failed to load cart");
+      const data = await res.json();
+      if (!Array.isArray(data)) {
+        toast.error("Cart data is not an array. Check backend response.");
+        setCartItems([]);
+        return;
+      }
+      setCartItems(data);
+    } catch (err) {
+      console.error("Cart fetch error:", err);
+      toast.error("Error loading cart. Please refresh.");
+      setCartItems([]);
+    }
   };
 
+  // ✅ POST /api/buyer/carts/remove/{productId}
   const handleRemoveItem = async (productId: number) => {
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/carts/${buyerId}/remove/${productId}`,
-        {
-          method: "POST",
-        }
+      const res = await fetchWithRefresh(
+        `http://localhost:8080/api/buyer/carts/remove/${productId}`,
+        { method: "POST" }
       );
 
       const text = await res.text();
@@ -44,19 +55,18 @@ export default function Cart() {
         toast.success(text || "Item removed.");
         fetchCart();
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
+      console.error("Remove item error:", err);
       toast.error("Network error while removing item.");
     }
   };
 
+  // ✅ POST /api/buyer/carts/clear
   const handleClearCart = async () => {
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/carts/${buyerId}/clear`,
-        {
-          method: "POST",
-        }
+      const res = await fetchWithRefresh(
+        `http://localhost:8080/api/buyer/carts/clear`,
+        { method: "POST" }
       );
 
       const text = await res.text();
@@ -67,8 +77,8 @@ export default function Cart() {
         toast.success(text || "Cart cleared.");
         fetchCart();
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
+      console.error("Clear cart error:", err);
       toast.error("Network error while clearing cart.");
     }
   };
@@ -80,17 +90,19 @@ export default function Cart() {
   );
 
   useEffect(() => {
-    fetchCart(); // on mount
+    fetchCart();
     const listener = () => fetchCart();
     window.addEventListener("cartUpdated", listener);
     return () => window.removeEventListener("cartUpdated", listener);
   }, []);
 
+  // ✅ POST /api/buyer/checkout
   const handleCheckout = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/api/checkout/${buyerId}`, {
-        method: "POST",
-      });
+      const res = await fetchWithRefresh(
+        `http://localhost:8080/api/buyer/checkout`,
+        { method: "POST" }
+      );
 
       const text = await res.text();
 
@@ -98,26 +110,23 @@ export default function Cart() {
         toast.error(text || "Failed to start checkout.");
       } else {
         toast.success(text || "Checkout started.");
+        window.location.href = "/payment";
       }
-
-      window.location.href = "/payment"; // always go to payment, whether checkout is new or reused
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
+      console.error("Checkout error:", err);
       toast.error("Network error during checkout.");
     }
   };
 
   return (
     <>
-      {/* 🛒 Floating Cart Button */}
+      {/* Floating Cart Button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
           className="fixed z-40 bottom-8 right-8 bg-gradient-to-br from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 text-white rounded-full shadow-2xl w-16 h-16 flex items-center justify-center border-4 border-white transition-all"
-          style={{ boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.2)" }}
           aria-label="Open cart"
         >
-          {/* Cart Icon (Heroicons outline style) */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -141,7 +150,7 @@ export default function Cart() {
         </button>
       )}
 
-      {/* 📦 Slide-in Cart Menu */}
+      {/* Slide-in Cart */}
       <div
         className={`fixed top-0 right-0 h-full w-80 bg-gray-50 shadow-xl transform transition-transform duration-300 z-40 ${
           open ? "translate-x-0" : "translate-x-full"
@@ -189,7 +198,6 @@ export default function Cart() {
           )}
         </div>
 
-        {/* 💰 Total, Clear & Pay */}
         <div className="p-4 border-t border-gray-200 space-y-3 bg-white rounded-bl-2xl">
           <div className="flex justify-between text-gray-800">
             <span className="font-semibold">Total:</span>

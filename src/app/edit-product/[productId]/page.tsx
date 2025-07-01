@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { uploadImageToCloudinary } from "../../create-product/utils/uploadImage";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { fetchWithRefresh } from "../../../utils/fetchWithRefresh";
 
 export default function EditProductPage() {
   const { productId } = useParams();
@@ -18,7 +19,7 @@ export default function EditProductPage() {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [sellerId, setSellerId] = useState<string | null>(null);
+  const [, setSellerId] = useState<string | null>(null);
 
   // Get sellerId after hydration
   useEffect(() => {
@@ -27,11 +28,11 @@ export default function EditProductPage() {
     }
   }, []);
 
-  // Fetch product data when sellerId and productId are available
+  // Fetch product data when productId is available
   useEffect(() => {
-    if (!sellerId || !productId) return;
+    if (!productId) return;
     setLoading(true);
-    fetch(`http://localhost:8080/api/products/${sellerId}/${productId}`)
+    fetchWithRefresh(`http://localhost:8080/api/seller/products/${productId}`)
       .then((res) => res.json())
       .then((data) => {
         setForm({
@@ -44,7 +45,7 @@ export default function EditProductPage() {
         setLoading(false);
         toast.error("Failed to load product data.");
       });
-  }, [productId, sellerId]);
+  }, [productId]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -94,8 +95,9 @@ export default function EditProductPage() {
                     ? parseInt(form.quantity)
                     : 1;
 
-                const res = await fetch(
-                  `http://localhost:8080/api/products/${sellerId}/${productId}`,
+                // Use fetchWithRefresh and correct endpoint
+                const res = await fetchWithRefresh(
+                  `http://localhost:8080/api/seller/products/${productId}`,
                   {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { uploadImageToCloudinary } from "./utils/uploadImage";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { fetchWithRefresh } from "../../utils/fetchWithRefresh";
 
 export default function CreateProductPage() {
   const [form, setForm] = useState({
@@ -55,27 +56,28 @@ export default function CreateProductPage() {
                 let imageUrl: string;
                 try {
                   imageUrl = await uploadImageToCloudinary(file);
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 } catch (err) {
                   toast.error("Image upload failed.");
                   setSubmitting(false);
                   return;
                 }
 
-                const sellerId = localStorage.getItem("userId");
                 const quantity =
                   form.quantity && !isNaN(Number(form.quantity))
                     ? parseInt(form.quantity)
                     : 1;
 
-                const res = await fetch(
-                  `http://localhost:8080/api/products/${sellerId}`,
+                // Use fetchWithRefresh and correct endpoint
+                const res = await fetchWithRefresh(
+                  "http://localhost:8080/api/seller/products",
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      ...form,
+                      title: form.title,
+                      category: form.category,
                       price: parseInt(form.price),
+                      description: form.description,
                       imageUrl,
                       quantity,
                     }),
