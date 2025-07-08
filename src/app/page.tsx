@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -28,9 +29,10 @@ export default function LoginPage() {
       localStorage.setItem("refreshToken", data.refreshToken);
       localStorage.setItem("role", data.role);
       localStorage.setItem("userId", String(data.userId));
+      toast.success("Login successful!");
       window.location.href = "/home";
     } else {
-      alert("Login failed!");
+      toast.error("Login failed!");
     }
   };
 
@@ -41,13 +43,13 @@ export default function LoginPage() {
           Login
         </h1>
         <input
-          className="mb-3 border border-blue-200 p-2 rounded w-full"
+          className="mb-3 border border-blue-200 p-2 rounded w-full text-black"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
         <input
-          className="mb-3 border border-blue-200 p-2 rounded w-full"
+          className="mb-3 border border-blue-200 p-2 rounded w-full text-black"
           placeholder="Password"
           type="password"
           value={password}

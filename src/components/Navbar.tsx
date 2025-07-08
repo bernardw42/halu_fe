@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Navbar({
   role,
@@ -10,6 +10,25 @@ export default function Navbar({
   onSearch: (query: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState<string>("");
+
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+    fetch(`http://localhost:8080/api/users/${userId}`)
+      .then((res) => res.json())
+      .then((user) => {
+        setProfileImageUrl(
+          user.profileImageUrl ||
+            "https://ui-avatars.com/api/?name=User&background=random"
+        );
+      })
+      .catch(() => {
+        setProfileImageUrl(
+          "https://ui-avatars.com/api/?name=User&background=random"
+        );
+      });
+  }, []);
 
   const handleLogout = async () => {
     const refreshToken = localStorage.getItem("refreshToken");
@@ -58,6 +77,15 @@ export default function Navbar({
       />
 
       <div className="mt-3 md:mt-0 md:ml-6 flex gap-2 items-center">
+        {/* Profile Image */}
+        {profileImageUrl && (
+          <img
+            src={profileImageUrl}
+            alt="Profile"
+            className="w-10 h-10 rounded-full border-2 border-blue-300 bg-white object-cover"
+            style={{ minWidth: 40, minHeight: 40 }}
+          />
+        )}
         {/* 🧾 Buyer: Payment | 📦 Seller: Sales */}
         {role === "BUYER" && (
           <Link href="/payment">

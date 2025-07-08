@@ -104,12 +104,37 @@ export default function Cart() {
         { method: "POST" }
       );
 
-      const text = await res.text();
+      let text = "";
+      let productNames = "";
+      try {
+        const data = await res.json();
+        // If backend returns an order object with items array
+        if (data && Array.isArray(data.items)) {
+          productNames = data.items
+            .map((item: any) => item.productTitle || item.product?.title)
+            .filter(Boolean)
+            .join(", ");
+        } else if (Array.isArray(data) && data.length > 0 && data[0].product) {
+          productNames = data.map((item: any) => item.product.title).join(", ");
+        } else if (data.product) {
+          productNames = data.product.title;
+        } else {
+          text = JSON.stringify(data);
+        }
+      } catch {
+        text = await res.text();
+      }
 
       if (!res.ok) {
         toast.error(text || "Failed to start checkout.");
       } else {
-        toast.success(text || "Checkout started.");
+        if (productNames) {
+          toast.success(
+            `Checkout started for: ${productNames} with a total of ${totalPrice} IDR.`
+          );
+        } else {
+          toast.success(text || "Checkout started.");
+        }
         window.location.href = "/payment";
       }
     } catch (err) {
