@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  halu_be:
+    build: ../halu_be # ⏪ adjust if your backend is in ../halu_be
+    container_name: halu_be
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      retries: 3
+
+  halu_frontend:
+    build:
+      context: . # ⏪ adjust if your frontend is in ./frontend
+    container_name: halu_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080 # for browser calls
+    depends_on:
+      halu_be:
+        condition: service_healthy

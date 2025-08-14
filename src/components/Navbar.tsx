@@ -59,7 +59,7 @@ export default function Navbar({
         href="/home"
         className="text-2xl font-extrabold text-white tracking-tight hover:text-blue-100 transition-all duration-150"
       >
-        HaluApp
+        KontolApp
       </Link>
 
       <input

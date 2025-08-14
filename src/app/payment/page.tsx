@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -51,11 +52,13 @@ export default function PaymentPage() {
           const idB = b.orderId ?? b.id;
           return idB - idA;
         })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((order: any) => ({
           id: order.orderId ?? order.id, // <-- always set .id
           status: order.status,
           createdAt: order.createdAt,
           expiresAt: order.expiresAt,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           items: order.items.map((item: any) => ({
             product: {
               title: item.productTitle,
@@ -242,7 +245,6 @@ export default function PaymentPage() {
                       console.log("Cancel order id:", order.id);
                       handleCancel(order.id);
                     }}
-                    s
                     className="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded font-semibold"
                   >
                     Cancel

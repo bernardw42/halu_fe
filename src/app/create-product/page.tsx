@@ -56,6 +56,7 @@ export default function CreateProductPage() {
                 let imageUrl: string;
                 try {
                   imageUrl = await uploadImageToCloudinary(file);
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 } catch (err) {
                   toast.error("Image upload failed.");
                   setSubmitting(false);

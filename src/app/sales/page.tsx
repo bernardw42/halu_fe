@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -26,7 +27,7 @@ type TimingInfo = {
 export default function SalesPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [timings, setTimings] = useState<Record<number, TimingInfo>>({});
-  const [now, setNow] = useState(Date.now());
+  const [, setNow] = useState(Date.now());
   const [timeLeft, setTimeLeft] = useState<Record<number, string>>({});
 
   // Fetch all seller orders
