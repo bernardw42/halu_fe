@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import AppImage from "../ui/AppImage";
 
 type CartItem = {
   id: number;
@@ -76,14 +77,12 @@ export default function Cart() {
 
   return (
     <>
-      {/* Floating Cart Button */}
       <button
         onClick={() => setOpen(true)}
         className="fixed z-40 bottom-8 right-8 bg-gradient-to-br from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 text-white rounded-full shadow-2xl w-16 h-16 flex items-center justify-center border-4 border-white transition-all"
         style={{ boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.2)" }}
         aria-label="Open cart"
       >
-        {/* Cart Icon (Heroicons outline style) */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -105,7 +104,6 @@ export default function Cart() {
         )}
       </button>
 
-      {/* Cart Modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="relative bg-white/95 rounded-3xl shadow-2xl p-8 w-full max-w-lg border border-blue-100">
@@ -129,9 +127,7 @@ export default function Cart() {
             {loading ? (
               <div className="text-center text-blue-500 py-8">Loading...</div>
             ) : cart.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">
-                Your cart is empty.
-              </div>
+              <div className="text-center text-gray-400 py-8">Your cart is empty.</div>
             ) : (
               <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
                 {cart.map((item) => (
@@ -139,21 +135,17 @@ export default function Cart() {
                     key={item.id}
                     className="flex items-center gap-4 bg-blue-50 rounded-xl p-3 shadow-sm"
                   >
-                    <img
+                    <AppImage
                       src={item.imageUrl}
                       alt={item.title}
+                      width={64}
+                      height={64}
                       className="w-16 h-16 object-cover rounded-lg border border-blue-100 bg-gray-100"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/no-image.png";
-                      }}
+                      fallbackSrc="/no-image.png"
                     />
                     <div className="flex-1">
-                      <div className="font-semibold text-blue-700">
-                        {item.title}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        x{item.quantity}
-                      </div>
+                      <div className="font-semibold text-blue-700">{item.title}</div>
+                      <div className="text-sm text-gray-500">x{item.quantity}</div>
                     </div>
                     <div className="font-bold text-blue-600">
                       {item.price * item.quantity} IDR
@@ -162,11 +154,9 @@ export default function Cart() {
                 ))}
               </div>
             )}
-            <div className="mt-6 flex justify-between items-center">
+            <div className="mt-6 flex items-center justify-between">
               <span className="font-bold text-blue-700 text-lg">Total:</span>
-              <span className="font-bold text-blue-700 text-lg">
-                {total} IDR
-              </span>
+              <span className="font-bold text-blue-700 text-lg">{total} IDR</span>
             </div>
             <div className="flex gap-3 mt-6">
               <button

@@ -1,14 +1,57 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { uploadImageToCloudinary } from "../../create-product/utils/uploadImage";
-import toast from "react-hot-toast";
+
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import Navbar from "../../../components/Navbar";
+import AppImage from "../../../components/ui/AppImage";
+import { uploadImageToCloudinary } from "../../create-product/utils/uploadImage";
 import { fetchWithRefresh } from "../../../utils/fetchWithRefresh";
+import { formatCurrency } from "../../../utils/formatCurrency";
+import { readApiError } from "../../../utils/readApiError";
+
+const TITLE_MAX_LENGTH = 120;
+const DESCRIPTION_MAX_LENGTH = 2000;
+
+function validateProductInput(form: {
+  title: string;
+  category: string;
+  price: string;
+  description: string;
+  quantity: string;
+}) {
+  const title = form.title.trim();
+  const category = form.category.trim();
+  const description = form.description.trim();
+  const price = Number(form.price);
+  const quantity = form.quantity ? Number(form.quantity) : 1;
+
+  if (title.length < 3 || title.length > TITLE_MAX_LENGTH) {
+    return "Title must be between 3 and 120 characters.";
+  }
+  if (category.length < 2 || category.length > 50) {
+    return "Category must be between 2 and 50 characters.";
+  }
+  if (!Number.isFinite(price) || price <= 0) {
+    return "Price must be greater than zero.";
+  }
+  if (description.length < 10 || description.length > DESCRIPTION_MAX_LENGTH) {
+    return "Description must be between 10 and 2000 characters.";
+  }
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    return "Quantity must be a whole number of at least 1.";
+  }
+  return null;
+}
 
 export default function EditProductPage() {
-  const { productId } = useParams();
+  const params = useParams();
+  const productId = Array.isArray(params.productId)
+    ? params.productId[0]
+    : params.productId;
+  const router = useRouter();
+
   const [form, setForm] = useState({
     title: "",
     category: "",
@@ -18,225 +61,298 @@ export default function EditProductPage() {
     quantity: "",
   });
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [, setSellerId] = useState<string | null>(null);
 
-  // Get sellerId after hydration
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setSellerId(localStorage.getItem("userId"));
+    if (!file) {
+      setPreviewUrl("");
+      return;
     }
-  }, []);
 
-  // Fetch product data when productId is available
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
   useEffect(() => {
     if (!productId) return;
+
     setLoading(true);
     fetchWithRefresh(`http://localhost:8080/api/seller/products/${productId}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(await readApiError(res));
+        }
+        return res.json();
+      })
       .then((data) => {
         setForm({
           ...data,
+          price: data.price?.toString() ?? "",
           quantity: data.quantity?.toString() ?? "",
         });
-        setLoading(false);
       })
-      .catch(() => {
-        setLoading(false);
-        toast.error("Failed to load product data.");
-      });
+      .catch((error: Error) => {
+        toast.error(error.message || "Failed to load product data.");
+      })
+      .finally(() => setLoading(false));
   }, [productId]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({ ...form, [event.target.name]: event.target.value });
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const img = e.target.files?.[0];
-    if (img && ["image/jpeg", "image/png"].includes(img.type)) {
-      setFile(img);
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const image = event.target.files?.[0];
+    if (!image) return;
+
+    if (["image/jpeg", "image/png"].includes(image.type)) {
+      setFile(image);
     } else {
       toast.error("Only PNG and JPG files are allowed.");
     }
   };
 
   const handleSubmit = async () => {
-    if (!form.title || !form.category || !form.price || !form.description) {
-      toast.error("Please fill in all required fields.");
+    const validationError = validateProductInput(form);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
-    toast(
-      (t) => (
-        <div className="flex flex-col gap-2">
-          <p>Update this product?</p>
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={async () => {
-                toast.dismiss(t.id);
-                setSubmitting(true);
+    setSubmitting(true);
+    try {
+      let imageUrl = form.imageUrl;
 
-                let imageUrl = form.imageUrl;
+      if (file) {
+        try {
+          imageUrl = await uploadImageToCloudinary(file);
+        } catch {
+          toast.error("Image upload failed.");
+          return;
+        }
+      }
 
-                if (file) {
-                  try {
-                    imageUrl = await uploadImageToCloudinary(file);
-                  } catch (err) {
-                    toast.error("Image upload failed.");
-                    setSubmitting(false);
-                    return;
-                  }
-                }
+      const quantity = form.quantity ? Number(form.quantity) : 1;
 
-                const quantity =
-                  form.quantity && !isNaN(Number(form.quantity))
-                    ? parseInt(form.quantity)
-                    : 1;
+      const res = await fetchWithRefresh(
+        `http://localhost:8080/api/seller/products/${productId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: form.title.trim(),
+            category: form.category.trim(),
+            price: Number(form.price),
+            description: form.description.trim(),
+            imageUrl,
+            quantity,
+          }),
+        }
+      );
 
-                // Use fetchWithRefresh and correct endpoint
-                const res = await fetchWithRefresh(
-                  `http://localhost:8080/api/seller/products/${productId}`,
-                  {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      ...form,
-                      price: parseInt(form.price),
-                      imageUrl,
-                      quantity,
-                    }),
-                  }
-                );
+      if (!res.ok) {
+        toast.error(await readApiError(res));
+        return;
+      }
 
-                if (res.ok) {
-                  toast.success("Product updated successfully!");
-                  setTimeout(() => {
-                    window.location.href = "/home";
-                  }, 1000);
-                } else {
-                  try {
-                    const contentType = res.headers.get("content-type");
-                    const errorMessage = contentType?.includes(
-                      "application/json"
-                    )
-                      ? (await res.json()).message
-                      : await res.text();
-
-                    toast.error(errorMessage || "Update failed.");
-                  } catch (err) {
-                    toast.error("An error occurred while updating.");
-                  }
-                }
-
-                setSubmitting(false);
-              }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-all duration-150"
-            >
-              Yes
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="bg-gray-300 text-black px-3 py-1 rounded text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: 10000 }
-    );
+      toast.success("Product updated successfully.");
+      router.replace("/home");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const parsedPrice = Number(form.price);
 
   if (loading) {
     return (
-      <main className="p-6 max-w-xl mx-auto min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-blue-50 to-blue-100">
-        <p className="text-blue-700 text-lg">Loading...</p>
+      <main className="page-shell flex items-center justify-center">
+        <div className="panel flex w-full max-w-xl items-center justify-between gap-6 px-6 py-6 sm:px-8">
+          <div>
+            <p className="section-kicker">Loading product</p>
+            <h1 className="mt-2 text-2xl font-semibold text-slate-950">
+              Preparing your edit workspace
+            </h1>
+          </div>
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#dfe9ff] border-t-[#1b5cff]" />
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100 overflow-hidden">
-      {/* Decorative Accent */}
-      <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-blue-100 rounded-br-full opacity-40 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-1/3 h-1/3 bg-blue-200 rounded-tl-full opacity-30 pointer-events-none" />
+    <main className="page-shell">
+      <Navbar role="SELLER" onSearch={() => {}} />
 
-      <div className="relative z-10 w-full max-w-2xl bg-white/90 rounded-3xl shadow-2xl p-10 flex flex-col gap-6 border border-blue-100">
-        <h1 className="text-3xl font-extrabold text-blue-700 mb-2 text-center tracking-tight">
-          Edit Product
-        </h1>
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-4">
+      <div className="content-shell grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="panel px-6 py-8 sm:px-8 sm:py-9">
+          <p className="section-kicker">Edit product</p>
+          <h1 className="section-title mt-4">Update the listing without leaving the seller flow.</h1>
+          <p className="section-copy mt-4 max-w-2xl">
+            Adjust details, replace the image when needed, and keep the product in sync
+            with the backend validation rules already enforced by the API.
+          </p>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Title
+              </label>
               <input
                 name="title"
+                placeholder="Product title"
                 value={form.title}
-                placeholder="Title"
                 onChange={handleChange}
-                className="border border-blue-200 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black placeholder-gray-400"
+                maxLength={TITLE_MAX_LENGTH}
+                className="input-field"
               />
+              <p className="mt-2 text-xs text-slate-500">
+                {form.title.length}/{TITLE_MAX_LENGTH} characters
+              </p>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Category
+              </label>
               <input
                 name="category"
-                value={form.category}
                 placeholder="Category"
+                value={form.category}
                 onChange={handleChange}
-                className="border border-blue-200 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black placeholder-gray-400"
+                className="input-field"
               />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Price
+              </label>
               <input
                 name="price"
                 type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
                 value={form.price}
-                placeholder="Price"
                 onChange={handleChange}
-                className="border border-blue-200 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black placeholder-gray-400"
+                className="input-field"
               />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Quantity
+              </label>
               <input
                 name="quantity"
                 type="number"
                 min={1}
-                placeholder="Quantity"
+                step={1}
+                placeholder="1"
                 value={form.quantity}
                 onChange={handleChange}
-                className="border border-blue-200 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black placeholder-gray-400"
+                className="input-field"
               />
             </div>
-            <div className="flex flex-col gap-4">
-              <textarea
-                name="description"
-                value={form.description}
-                placeholder="Description"
-                onChange={handleChange}
-                className="border border-blue-200 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black placeholder-gray-400 min-h-[120px] resize-none"
-              />
+          </div>
+
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Description
+            </label>
+            <textarea
+              name="description"
+              placeholder="Describe the product, quality, and use case"
+              value={form.description}
+              onChange={handleChange}
+              maxLength={DESCRIPTION_MAX_LENGTH}
+              className="textarea-field"
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              {form.description.length}/{DESCRIPTION_MAX_LENGTH} characters
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Replace image
+            </label>
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-[#b8ccff] bg-[#f8fbff] px-5 py-8 text-center">
+              <span className="text-sm font-semibold text-slate-900">
+                Upload PNG or JPG
+              </span>
+              <span className="mt-2 text-sm text-slate-500">
+                {file ? file.name : "Leave empty to keep the current product image"}
+              </span>
               <input
                 type="file"
                 accept="image/png,image/jpeg"
-                className="border border-blue-200 p-3 rounded-lg bg-white text-black"
+                className="hidden"
                 onChange={handleImageChange}
               />
-            </div>
+            </label>
           </div>
-          <div className="flex flex-col md:flex-row gap-4 justify-center mt-4">
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
-              type="submit"
+              type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white px-8 py-3 rounded-xl font-bold shadow transition-all duration-150 w-full md:w-auto"
+              className="primary-button"
             >
-              {submitting ? "Updating..." : "Save Changes"}
+              {submitting ? "Saving..." : "Save changes"}
             </button>
-            <Link
-              href="/home"
-              className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-8 py-3 rounded-xl font-bold shadow transition-all duration-150 flex items-center justify-center w-full md:w-auto"
-            >
-              Cancel
+            <Link href="/home" className="secondary-button">
+              Back to dashboard
             </Link>
           </div>
-        </form>
+        </section>
+
+        <aside className="panel-strong px-6 py-8 sm:px-8 sm:py-9">
+          <p className="section-kicker">Live preview</p>
+          <div className="mt-4 overflow-hidden rounded-[28px] border border-[#d7e3f7] bg-[#fafcff] p-4">
+            <AppImage
+              src={previewUrl || form.imageUrl || undefined}
+              alt={form.title || "Preview"}
+              width={640}
+              height={480}
+              className="h-72 w-full rounded-[24px] object-cover"
+            />
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5370a6]">
+                {form.category.trim() || "Category"}
+              </p>
+              <h2 className="mt-2 line-clamp-2 h-16 text-2xl font-semibold leading-8 text-slate-950">
+                {form.title.trim() || "Your product title"}
+              </h2>
+              <p className="mt-3 line-clamp-2 h-12 text-sm leading-6 text-slate-500">
+                {form.description.trim() ||
+                  "A concise product description helps buyers decide quickly."}
+              </p>
+              <div className="mt-5 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                    Stock
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                    {form.quantity || "1"} units
+                  </p>
+                </div>
+                <p className="text-2xl font-semibold text-[#0f43c7]">
+                  {Number.isFinite(parsedPrice) && parsedPrice > 0
+                    ? formatCurrency(parsedPrice)
+                    : "Set a price"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </main>
   );
 }
+
+

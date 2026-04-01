@@ -1,6 +1,9 @@
 module.exports = {
-  // ...existing config...
   images: {
-    domains: ["placehold.co"], // add all domains you use for images
+    remotePatterns: [
+      { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "ui-avatars.com" },
+      { protocol: "https", hostname: "placehold.co" },
+    ],
   },
 };
